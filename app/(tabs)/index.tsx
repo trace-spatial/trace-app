@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOutUp, SlideInRight } from 'react-native-reanimated';
+import { AIInput } from '../../_components/AIInput';
 import { useBatteryState } from '../../_utils/hooks/useBatteryState';
-import { useTraceStore } from '../../_utils/state/traceStore';
 import { useOnboarding } from '../../_utils/hooks/useOnboarding';
-import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { useTraceStore } from '../../_utils/state/traceStore';
+import { TermsDialog } from '../screens/TermsDialog';
 
 // Trace Design System
 const SPACING = {
@@ -41,21 +42,22 @@ export default function HomeScreen() {
   const store = useTraceStore();
   const onboarding = useOnboarding();
   const [showExplanation, setShowExplanation] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Show onboarding if user hasn't completed it yet
-  if (onboarding.showOnboarding) {
+  const handleSearchSubmit = (query: string) => {
+    setSearchQuery(query);
+    console.log('Search query:', query);
+    // Navigate to search results or process search
+  };
+
+  // Show Terms & Conditions on first launch
+  if (onboarding.showTerms) {
     return (
-      <OnboardingScreen
-        currentStep={onboarding.currentStep}
-        onComplete={onboarding.completeOnboarding}
-        onRequestMotionPermission={onboarding.requestMotionPermission}
-        onRequestBackgroundPermission={onboarding.requestBackgroundPermission}
-        onSkip={onboarding.skipOnboarding}
-      />
+      <TermsDialog onAgree={onboarding.agreeToTerms} />
     );
   }
 
-  // Main home screen after onboarding
+  // Main home screen
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <ScrollView 
@@ -67,7 +69,7 @@ export default function HomeScreen() {
       >
         {/* Logo */}
         <Animated.View
-          entering={FadeInDown.duration(400)}
+          entering={SlideInRight.duration(400)}
           style={{ alignItems: 'center', marginBottom: SPACING.xxl }}
         >
           <Image
@@ -120,7 +122,7 @@ export default function HomeScreen() {
         {/* Welcome Section */}
         <Animated.View
           entering={FadeInDown.duration(400).delay(100)}
-          style={{ marginBottom: SPACING.xxl }}
+          style={{ marginBottom: SPACING.xl }}
         >
           <Text 
             style={{ 
@@ -138,10 +140,21 @@ export default function HomeScreen() {
               fontSize: FONT_SIZES.body, 
               color: COLORS.text_secondary, 
               lineHeight: FONT_SIZES.body * 1.5,
+              marginBottom: SPACING.xl,
             }}
           >
             Works best after normal use.
           </Text>
+
+          {/* AI Input Component */}
+          <Animated.View
+            entering={FadeInDown.duration(400).delay(120)}
+          >
+            <AIInput 
+              placeholder="What are you looking for?"
+              onSubmit={handleSearchSubmit}
+            />
+          </Animated.View>
         </Animated.View>
 
         {/* Battery Status */}
