@@ -11,12 +11,12 @@
  */
 
 import type {
-  BehavioralScores,
-  CandidateZone,
-  LossQuery,
-  MovementEpisode,
-  ZoneGraph,
-  DisruptionEvent,
+    BehavioralScores,
+    CandidateZone,
+    DisruptionEvent,
+    LossQuery,
+    MovementEpisode,
+    ZoneGraph,
 } from '../types/domain';
 
 /**

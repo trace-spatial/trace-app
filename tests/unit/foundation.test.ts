@@ -5,28 +5,27 @@
  * Tests system constraints and edge cases.
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
-import { useTraceStore } from '../../_utils/state/traceStore';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 import {
-  createEmptyGraph,
-  addZone,
-  addEdge,
-  listZones,
-  getNeighbors,
-  estimateHomeSize,
+    addEdge,
+    addZone,
+    createEmptyGraph,
+    estimateHomeSize,
+    getNeighbors,
+    listZones,
 } from '../../_utils/services/graph';
 import {
-  rankCandidateZones,
-  computeBehavioralScores,
+    computeBehavioralScores,
+    rankCandidateZones,
 } from '../../_utils/services/inference';
 import { MockStorage } from '../../_utils/services/storage';
+import { useTraceStore } from '../../_utils/state/traceStore';
 import type {
-  Zone,
-  ZoneGraph,
-  MovementEpisode,
-  LossQuery,
-  BehavioralScores,
-  UserProfile,
+    LossQuery,
+    MovementEpisode,
+    UserProfile,
+    Zone,
+    ZoneGraph
 } from '../../_utils/types/domain';
 
 /**

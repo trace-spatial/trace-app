@@ -5,5 +5,6 @@
  */
 
 export { useBatteryState } from './useBatteryState';
-export { useInference } from './useInference';
 export { useGraph } from './useGraph';
+export { useInference } from './useInference';
+

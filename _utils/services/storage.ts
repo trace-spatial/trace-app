@@ -11,11 +11,11 @@
  */
 
 import type {
-  MovementEpisode,
-  ZoneGraph,
-  UserProfile,
-  LossQuery,
-  CollaborativeSession,
+    CollaborativeSession,
+    LossQuery,
+    MovementEpisode,
+    UserProfile,
+    ZoneGraph,
 } from '../types/domain';
 
 /**

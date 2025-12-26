@@ -10,17 +10,17 @@
  */
 
 import { useCallback } from 'react';
-import { useTraceStore } from '../state/traceStore';
 import {
-  createEmptyGraph,
-  addZone,
-  addEdge,
-  recordTransition,
-  getZone,
-  listZones,
-  getNeighbors,
-  estimateHomeSize,
+    addEdge,
+    addZone,
+    createEmptyGraph,
+    estimateHomeSize,
+    getNeighbors,
+    getZone,
+    listZones,
+    recordTransition,
 } from '../services/graph';
+import { useTraceStore } from '../state/traceStore';
 import type { Zone, ZoneEdge, ZoneTransition } from '../types/domain';
 
 /**

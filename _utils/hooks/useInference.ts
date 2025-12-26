@@ -9,10 +9,10 @@
  * - Real-time inference (query-driven)
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useState } from 'react';
+import { computeBehavioralScores, rankCandidateZones } from '../services/inference';
 import { useTraceStore } from '../state/traceStore';
-import { rankCandidateZones, computeBehavioralScores } from '../services/inference';
-import type { CandidateZone, BehavioralScores, LossQuery } from '../types/domain';
+import type { BehavioralScores, CandidateZone, LossQuery } from '../types/domain';
 
 interface UseInferenceState {
   isRunning: boolean;

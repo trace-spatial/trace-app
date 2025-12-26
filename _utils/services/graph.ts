@@ -10,7 +10,7 @@
  * - External storage (local IndexedDB only)
  */
 
-import type { ZoneGraph, Zone, ZoneEdge, ZoneTransition } from '../types/domain';
+import type { Zone, ZoneEdge, ZoneGraph, ZoneTransition } from '../types/domain';
 
 /**
  * Create an empty zone graph.

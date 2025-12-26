@@ -9,8 +9,8 @@
  * - Interactive editing (display only)
  */
 
-import React from 'react';
 import { motion } from 'framer-motion';
+import React from 'react';
 import type { BehavioralScores } from '../_utils/types/domain';
 
 interface BehavioralIndicatorProps {

@@ -12,12 +12,11 @@
 
 import { create } from 'zustand';
 import type {
-  UserProfile,
-  ZoneGraph,
-  MovementEpisode,
-  LossQuery,
-  CollaborativeSession,
-  AppState,
+    CollaborativeSession,
+    LossQuery,
+    MovementEpisode,
+    UserProfile,
+    ZoneGraph
 } from '../types/domain';
 
 interface TraceStore {

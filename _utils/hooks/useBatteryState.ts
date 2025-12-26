@@ -9,7 +9,7 @@
  * - Battery optimization algorithms (OS-level)
  */
 
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useTraceStore } from '../state/traceStore';
 
 /**
