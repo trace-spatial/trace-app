@@ -13,12 +13,12 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, TextInput, FlatList } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useTraceStore } from '../../_utils/state/traceStore';
-import { useInference } from '../../_utils/hooks/useInference';
 import { ConfidenceBadge } from '../../_components/ConfidenceBadge';
-import type { LossQuery, CandidateZone } from '../../_utils/types/domain';
+import { useInference } from '../../_utils/hooks/useInference';
+import { useTraceStore } from '../../_utils/state/traceStore';
+import type { CandidateZone, LossQuery } from '../../_utils/types/domain';
 
 interface SearchScreenProps {
   onNavigateBack: () => void;

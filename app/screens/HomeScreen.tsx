@@ -11,10 +11,10 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
-import { useTraceStore } from '../../_utils/state/traceStore';
 import { useBatteryState } from '../../_utils/hooks/useBatteryState';
+import { useTraceStore } from '../../_utils/state/traceStore';
 
 interface HomeScreenProps {
   onNavigateToSearch: () => void;
