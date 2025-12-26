@@ -10,8 +10,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
-import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { Text, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { BehavioralScores } from '../_utils/types/domain';
 
 interface BehavioralIndicatorProps {
