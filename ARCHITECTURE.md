@@ -1,361 +1,201 @@
-# Trace App - Architecture
-
-Technical design of the Trace application and how microservices integrate.
-
----
-
-## Table of Contents
-
-1. [System Overview](#system-overview)
-2. [Component Architecture](#component-architecture)
-3. [Data Flow](#data-flow)
-4. [Native Integration](#native-integration)
-5. [State Management](#state-management)
-6. [Deployment Architecture](#deployment-architecture)
-
----
+# Trace App — Technical Architecture
 
-## System Overview
-
-### Architectural Principles
+System Design Document v1.0 (Azure-Centric)
 
-Trace's architecture follows rules inherited from the Rust engines:
+This document defines the Azure-first architecture of Trace.
 
-| Principle | Rationale |
-|-----------|-----------|
-| **Offline-First** | User data never leaves device. Core features work without internet. |
-| **Type-Safe** | Every concept has a type. React + Rust with strict type checking. |
-| **Battery-Aware** | Events replace streams. Summarize early. No continuous processing. |
-| **Boring Code** | Judges predict the next line. Intent is obvious. No clever tricks. |
-| **Fault Tolerant** | Services fail gracefully. Degradation, not crashes. |
+Trace is a cognitive accessibility system where Azure AI performs all reasoning
+and decision-making, while the device performs sensing, summarization,
+and physical execution.
 
-### Technology Stack
+Local components do not decide what matters.
+They only observe, compress, and execute decisions made by Azure.
 
-Three layers: React Native frontend, Rust microservices, Device APIs.
+--------------------------------------------------------------------
 
-```
-TypeScript + React Native + Zustand
-          ↕ FFI (C ABI)
-Rust (CEBE-X, IMU, Zone Mapper)
-          ↕ Device APIs
-iOS CoreMotion / Android SensorManager
-```
-
-**Why this stack?**
-- **TypeScript**: Type safety in UI layer
-- **React Native**: Single codebase, iOS + Android
-- **Rust**: Fast, memory-safe, offline-capable
-- **Zustand**: Lightweight state (no Redux overhead)
-- **SQLite**: Local persistence, ACID guarantees
-
----
+1. Architectural Truths (Non-Negotiable)
 
-## Component Architecture
-
-### 1. Frontend Components (React Native)
-
-#### Screen Hierarchy
-
-```
-RootLayout (_layout.tsx)
-├── AuthStack (if applicable)
-├── TabsLayout (tabs/_layout.tsx)
-│   ├── HomeScreen (index.tsx)
-│   │   ├── AIInput
-│   │   │   ├─ Voice recorder
-│   │   │   ├─ Text input
-│   │   │   └─ Submit button
-│   │   └── BehavioralIndicator
-│   │       ├─ Real-time motion visualization
-│   │       └─ Sensor status
-│   ├── ExploreScreen (explore.tsx)
-│   │   ├── ResultsList
-│   │   │   ├─ DisruptionEvent cards
-│   │   │   ├─ Confidence badges
-│   │   │   └─ Timeline view
-│   │   └── ZoneMap
-│   │       ├─ 2D zone visualization
-│   │       ├─ Trajectory overlay
-│   │       └─ Interaction handlers
-│   └── SettingsScreen (if added)
-│       ├─ Permissions manager
-│       ├─ Privacy settings
-│       └─ About Trace
-└── OnboardingScreen
-    ├─ Permission requests
-    ├─ Sensor calibration
-    └─ Terms acceptance
-```
-
-#### Component Responsibilities
-
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| `HomeScreen` | Query entry point, user asks "Where was I?" | `app/screens/HomeScreen.tsx` |
-| `SearchScreen` | Display ranked disruption results | `app/screens/SearchScreen.tsx` |
-| `OnboardingScreen` | Initial setup, permissions, calibration | `app/screens/OnboardingScreen.tsx` |
-| `AIInput` | Voice/text input for user query | `_components/AIInput.tsx` |
-| `BehavioralIndicator` | Real-time motion processing feedback | `_components/BehavioralIndicator.tsx` |
-| `ConfidenceBadge` | Score visualization (0-100%) | `_components/ConfidenceBadge.tsx` |
-
-### 2. Hooks (Business Logic)
-
-#### `useInference` Hook Pattern
-
-The hook encapsulates all inference-related state and operations.
-
-#### `useBatteryState` Hook
-
-Tracks device battery and low power mode for optimization.
-
-#### `useGraph` Hook
-
-Provides spatial queries from Zone Mapper.
-
-### 3. Services (Backend Integration)
-
-- **InferenceService**: CEBE-X FFI wrapper
-- **GraphService**: Zone Mapper queries  
-- **StorageService**: Local SQLite persistence
-
-### 4. State Management (Zustand)
-
-Centralized store for query results, zones, and user preferences.
-
----
-
-## Data Flow
-
-### User Query
-
-```
-"Where was I 1 hour ago?"
-         ↓
-HomeScreen parses time window
-         ↓
-useInference hook triggered
-         ↓
-Zone Mapper: queryDisruptions(since, until)
-         ↓
-CEBE-X: rankDisruptions(events)
-         ↓
-Zustand store updated
-         ↓
-Results screen renders timeline
-```
-
-**Latency target: <500ms end-to-end**
-
-### Sensor Data Processing
-
-```
-Motion sensors (100 Hz)
-       ↓
-IMU Engine (Rust)
-  • Detects disruptions
-  • Outputs binary messages
-       ↓
-Zone Mapper (Rust)
-  • Indexes zones
-  • Persists to SQLite
-       ↓
-(On user query)
-CEBE-X (Rust)
-  • Ranks by relevance
-  • Returns top-K
-```
-
----
-
-```
-User: "Where was I 1 hour ago?"
-      │
-      ▼
-HomeScreen (Parse time window)
-      │
-      ▼
-useInference Hook
-      │
-      ├──→ Zone Mapper (Query disruptions)
-      │
-      ├──→ CEBE-X Engine (Rank by relevance)
-      │
-      ├──→ Zustand Store (Update state)
-      │
-      ▼
-SearchScreen (Display results)
-```
-
-**Latency Budget:**
-- Query parsing: <10ms
-- Zone Mapper query: <100ms
-- CEBE-X inference: <300ms
-- UI rendering: <100ms
-- **Total: <500ms target**
-
-### Sensor Data Flow (Background)
-
-```
-Device Sensors (100 Hz) → IMU Engine (Rust)
-      │
-      ├─ Madgwick AHRS (orientation)
-      ├─ Step detection
-      ├─ Motion classification
-      └─ Disruption detection
-      │
-      ▼ (Binary wire format)
-Zone Mapper (Rust)
-      │
-      ├─ Parse messages
-      ├─ Update trajectory
-      ├─ Detect zones
-      └─ Persist to database
-      │
-      ▼ (On user query)
-CEBE-X Engine (Rust)
-      │
-      ├─ Fetch disruptions
-      ├─ Extract features
-      └─ Rank by relevance
-```
+These statements must remain true across documentation, demos, and judging.
 
-**Processing Characteristics:**
-- **IMU Engine**: Realtime, O(1)/sample, no storage
-- **Zone Mapper**: Streaming ingestion, batched indexing
-- **CEBE-X**: On-demand batch processing, <500ms
+- Azure is the Brain  
+  All interruption validation, confidence scoring, and guidance decisions are
+  executed by Azure OpenAI (GPT-4o).
 
----
+- Edge is the Nervous System  
+  Rust engines sense motion and build summaries. They do not reason.
 
-## Native Integration
+- No Silent Intelligence  
+  If Azure is unavailable, Trace disables guidance and informs the user.
 
-### FFI Bridge Architecture
+- Assistive, Not Deterministic  
+  Outputs are probabilistic guidance, not instructions or diagnoses.
 
-```
-TypeScript ↔ React Native Bridge ↔ Rust FFI ↔ Core Rust Logic
-```
+If Azure is removed, Trace loses its core value.
 
-### iOS Integration
+--------------------------------------------------------------------
 
-Rust engines compiled to `.a` archives, linked in Xcode build.
+2. System Architecture Overview
 
-### Android Integration  
+High-level component flow:
 
-Rust engines compiled to `.so` libraries, packaged in APK via gradle.
+User Interface (React Native)
+        |
+        v
+Guidance State Machine
+        |
+        v
+CEBE-X Runtime (Summarization)
+        |
+        v
+Encrypted Local Event Buffer
+        |
+        v
+Azure App Service (API Gateway)
+        |
+        v
+Azure OpenAI GPT-4o
+        |
+        v
+Guidance Strategy (returned to UI)
 
-### Rust FFI Boundaries
+Parallel Edge Sensing Path:
 
-Clean C FFI interfaces for JSON serialization.
+IMU Engine (Rust) ---> Zone Mapper (Rust) ---> CEBE-X Runtime
 
----
+--------------------------------------------------------------------
 
-## State Management
+3. Layer Responsibilities
 
-### Global State Tree
+3.1 Presentation Layer (React Native)
 
-```
-traceStore (Zustand)
-├── queryState
-│   ├─ rankedEvents[]
-│   ├─ queryTimestamp
-│   ├─ isLoading
-│   └─ error
-├── zoneState
-│   ├─ currentZone
-│   └─ zoneHistory[]
-├── sessionState
-│   └─ sessionId
-└── preferenceState
-    ├─ privacyConsent
-    └─ enableCloudServices
-```
+Responsibilities:
+- Display system state (Listening, Analyzing, Guiding, Unable to Guide)
+- Render physical guidance (directional arrow + haptics)
+- Never infer or guess without Azure confirmation
 
-### Local Component State
+The UI never interprets sensor data directly.
 
-Component-specific state for UI interactions (text input, map zoom, etc).
+--------------------------------------------------------------------
 
-### State Synchronization
+3.2 Guidance State Machine
 
-Zustand provides automatic re-rendering when state updates.
+Purpose:
+- Prevent premature or unsafe guidance
+- Enforce Azure dependency
 
----
+States:
+- Idle
+- Monitoring
+- AzureAnalyzing
+- GuidanceActive
+- AzureUnavailable
 
-## Deployment Architecture
+Only Azure can transition the system into GuidanceActive.
 
-### Production Build Matrix
+--------------------------------------------------------------------
 
-| Platform | Architecture | Format | Size |
-|----------|--------------|--------|------|
-| iOS (arm64) | aarch64-apple-ios | .ipa | ~150MB |
-| Android (arm64) | aarch64-linux-android | .aab | ~120MB |
+3.3 Edge Layer (Rust)
 
-### Binary Sizes
+Components:
 
-```
-iOS .ipa (~150MB):
-├─ React Native + Expo: ~60MB
-├─ Rust engines: ~37MB
-└─ Assets: ~40MB
+IMU Engine
+- Processes accelerometer, gyroscope, and magnetometer data
+- Detects motion changes and interruption candidates
 
-Android .aab (~120MB):
-├─ React Native + Expo: ~50MB
-├─ Rust .so files: ~19MB
-└─ Assets: ~30MB
-```
+Zone Mapper
+- Builds ephemeral relative zones without GPS
+- Tracks transitions and dwell time
 
----
+CEBE-X Runtime
+- Extracts behavioral features
+- Builds summarized context payloads
+- Does NOT make decisions
 
-## Error Handling
+--------------------------------------------------------------------
 
-### Error Types
+4. Cloud Intelligence Layer (Azure)
 
-- `InferenceError`: CEBE-X ranking failed
-- `PermissionError`: User denied permissions
-- `StorageError`: Database operations failed
-- `NetworkError`: Cloud service unavailable
+4.1 Azure App Service
 
-### Recovery Strategy
+- Authenticates requests
+- Rate limits calls
+- Acts as secure gateway to Azure OpenAI
 
-Graceful degradation: fallback to simpler algorithms if ML unavailable.
+4.2 Azure OpenAI (GPT-4o)
 
----
+Primary responsibilities:
+- Validate whether an interruption is meaningful
+- Decide whether guidance should occur
+- Select target context anchor
+- Generate psychologically tuned guidance language
 
-## Testing Strategy
+GPT-4o is not formatting strings.
+It adapts guidance based on cognitive state.
 
-### Unit Tests (Jest)
+--------------------------------------------------------------------
 
-Test individual hooks and services.
+5. Data Flow
 
-### Integration Tests
+Edge Sensing Loop (Continuous):
+- Frequency: ~50 Hz
+- Location: On-device only
+- Network: Never used
 
-Test query flow from input to results display.
+Steps:
+1. Sensors emit motion vectors
+2. IMU Engine detects changes
+3. Zone Mapper assigns relative context
+4. Events stored in encrypted local buffer
 
-### E2E Tests (Detox)
+Azure Reasoning Loop (On-Demand):
+- Triggered by user or sustained confusion
+- Frequency: Low (rare, intentional)
 
-Test full user workflows on device.
+Steps:
+1. CEBE-X builds context summary
+2. Summary sent to Azure App Service
+3. GPT-4o reasons over context
+4. Guidance strategy returned to device
+5. UI renders physical guidance
 
----
+--------------------------------------------------------------------
 
-## Monitoring & Telemetry
+6. Security and Privacy Model
 
-### Key Metrics
+- Raw sensor data never leaves the device
+- Only summarized behavioral vectors are sent to Azure
+- No GPS coordinates, images, or PII transmitted
+- Data encrypted at rest and in transit
+- Azure processing is stateless and non-retentive
 
-- Daily Active Users (DAU)
-- Query Success Rate
-- Inference Latency
-- Crash Rate
-- Battery Impact
+Trace is assistive software, not a medical diagnostic device.
 
-### Analytics
+--------------------------------------------------------------------
 
-Integrated with Firebase Analytics and Sentry error tracking.
+7. Failure Modes
 
-## Summary
+Azure Unavailable:
+- Guidance disabled
+- User informed clearly
+- No silent fallback logic
 
-Trace integrates three Rust microservices through React Native using FFI bindings. The architecture prioritizes:
+Low Confidence Result:
+- Azure returns actionable = false
+- UI displays "Unable to guide safely"
 
-1. **Predictability**: Type-safe interfaces, explicit state management
-2. **Performance**: O(1) processing, <500ms query latency
-3. **Privacy**: All data stays on device, optional cloud services
-4. **Reliability**: Graceful degradation, error recovery
+Sensor Failure:
+- Edge engine restarts
+- UI shows calibration state
 
-Code is boring on purpose. Intent is obvious. That's how judges know it works.
+--------------------------------------------------------------------
+
+8. Summary
+
+Trace is a real-time cognitive accessibility system that:
+
+- Uses edge computing for sensing
+- Uses Azure AI for reasoning
+- Uses physical guidance to restore task continuity
+
+Azure is not optional.
+Azure is the intelligence anchor of the system.
