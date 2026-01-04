@@ -43,6 +43,9 @@ app-example
 /android
 .vscode
 .docs
+
 trace-cebe-x-engine/
 trace-sensing-engine/
 trace-zone-mapper/
+
+ui and framing/
