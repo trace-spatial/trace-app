@@ -1,244 +1,248 @@
 # Trace
 
-Detects interruptions and physically guides users back to what they were doing.
+**Trace detects interruptions and physically guides users back to what they were doing.**
 
-Built for people with early cognitive impairment who lose independence when interruptions leave them stuck.
+It is built for people with early cognitive impairment who lose independence when interruptions leave them stuck.
+
+---
+
+## What Trace Is
+
+Trace is a **cognitive accessibility system**, not a reminder app and not a productivity tool.
+
+For people with early cognitive impairment (early-stage dementia, ADHD-related executive dysfunction, post-illness cognitive decline), an interruption can cause a complete loss of continuity. The person is not distracted — they are **unable to resume independently**.
+
+Trace exists for that exact moment.
+
+It does not tell users *what* to do.  
+It does not store routines or schedules.  
+It **detects when functioning breaks** and **guides the user back to the point where continuity was lost**, allowing natural recovery.
+
+---
 
 ## What Trace Does
 
-When you get interrupted and lose your train of thought, you ask:
+When a user becomes stuck after an interruption, Trace:
 
-> "Where was I?"
+1. Detects behavioral signals that indicate loss of continuity  
+2. Uses **Azure AI** to reason over recent interruption patterns  
+3. Determines which interruption most likely caused the breakdown  
+4. Physically guides the user back toward that moment  
+5. Confirms whether independence is restored
 
-Trace listens to your motion—the way you walk, your hesitations, your turns—and identifies the exact moment your focus broke. It shows you that moment visually, with the places you were, so you can resume what you were doing.
+The goal is not recall.  
+The goal is **restoration of functioning**.
 
-No network required. No data leaves your device.
+---
 
-## Architecture
+## User Experience (High Level)
 
-```
+- The user opens Trace when they feel stuck
+- The system evaluates whether guidance is appropriate
+- If actionable, Trace begins guidance
+- A directional anchor appears, adjusting as the user moves
+- Subtle haptics reinforce proximity to the interruption point
+- The system verifies whether the user can continue independently
+
+No typing.  
+No explanation required.  
+One action at a time.
+
+---
+
+## Architecture Overview
+
 ┌────────────────────────────────────────────────────┐
-│              USER INTERFACE                        │
+│                   USER INTERFACE                   │
 │  React Native + Expo + TypeScript                  │
-│  ├─ Query: "Where was I?"                         │
-│  ├─ Results: Visual timeline of disruptions       │
-│  └─ Guidance: Where you were and why              │
+│                                                    │
+│  • System-led evaluation state                     │
+│  • Physical guidance (direction + haptics)         │
+│  • Calibration and resolution confirmation         │
 └──────────┬─────────────────────────────────────────┘
-           │
-           │ FFI (fast, type-safe)
-           │
+           │ Secure, minimal event stream
 ┌──────────┴────────────────────────────────────────┐
-│          OFFLINE RUST ENGINES                     │
-│                                                   │
-│  IMU Engine                                       │
-│  • Processes: accel, gyro, compass               │
-│  • Detects: motion patterns + disruptions        │
-│  • Output: Binary wire format                    │
-│        │                                          │
-│        ├─→ Zone Mapper                           │
-│        │   • Spatial index of locations         │
-│        │   • Zone transitions + persistence     │
-│        │                                         │
-│        └─→ CEBE-X Engine                        │
-│            • Ranks disruptions by relevance     │
-│            • Scores: 0.0–1.0 confidence       │
-└──────────────────────────────────────────────────┘
-```
+│              AZURE AI (CORE INTELLIGENCE)          │
+│                                                    │
+│  Azure OpenAI (GPT-4o)                              │
+│  • Interruption reasoning                          │
+│  • Confidence assessment                           │
+│  • Adaptive guidance strategy                      │
+│                                                    │
+│  Azure AI Foundry                                  │
+│  • Model training and refinement                   │
+│  • Synthetic data generation                       │
+│                                                    │
+│  Azure Blob Storage                                │
+│  • Model distribution                              │
+│  • Versioned intelligence updates                  │
+└──────────┬────────────────────────────────────────┘
+           │ Device-level execution
+┌──────────┴────────────────────────────────────────┐
+│               ON-DEVICE ENGINES                    │
+│                                                    │
+│  IMU Engine (Rust)                                 │
+│  • Processes accelerometer, gyroscope, compass    │
+│  • Detects interruption events                    │
+│                                                    │
+│  Zone Mapper (Rust)                                │
+│  • Maintains short-lived spatial anchors           │
+│  • Tracks transitions, not maps                    │
+│                                                    │
+│  CEBE-X Runtime (ONNX)                              │
+│  • Executes distilled ranking model                │
+│  • Produces guidance-ready signals                 │
+└────────────────────────────────────────────────────┘
+
+**Important:** Azure AI is not optional. Without Azure, Trace cannot reason, adapt, or improve. The on-device engines execute guidance, but **intelligence lives in Azure**.
+
+---
 
 ## What Trace Detects
 
-Trace watches for moments when your behavior changes abruptly:
+Trace does not guess intent. It detects **interruptions that correlate with loss of functioning**:
 
-| Signal | Meaning | Weight |
-|--------|---------|--------|
-| Phone pickup | You got distracted | 0.9 |
-| Transport change | You changed location mode | 0.8 |
-| Searching behavior | You're looking for something | 0.75 |
-| Abrupt halt | You stopped suddenly | 0.7 |
-| Environment change | You entered/left a place | 0.65 |
-| Extended stillness | You paused longer than usual | 0.6 |
+| Signal | Meaning |
+|------|--------|
+| Phone pickup / drop | External interruption |
+| Abrupt stop | Breakdown in action flow |
+| Reversal or pacing | Failed continuation |
+| Transport transition | Context boundary crossed |
+| Prolonged stillness | Freeze response |
+| Repeated micro-movements | Searching without recall |
 
-When one of these happens, Trace stores it. When you ask "Where was I?", it shows you which moment was most likely your interruption point.
+These signals are evaluated together, not in isolation.
 
-## How It Works
+---
 
-**1. Permission Setup**
+## How Trace Works (End-to-End)
 
-Trace asks for motion sensor access on first launch. That's all it needs.
+### 1. Permissions
 
-**2. Background Monitoring**
+Trace requests:
+- Motion sensor access
+- Foreground activity awareness
 
-Your phone's motion processors collect accelerometer, gyroscope, and compass data. This runs continuously but uses minimal battery because it's in Rust—no garbage collection, no overhead.
+No continuous recording. No background audio. No camera.
 
-**3. On-Device Processing**
+---
 
-The data flows through three Rust engines:
-- **IMU Engine** detects disruption events in real-time
-- **Zone Mapper** builds a spatial index of where you've been  
-- **CEBE-X** ranks those events by relevance
+### 2. Event Detection (On Device)
 
-All happens locally. Your data never leaves your device.
+The IMU Engine detects interruption events in real time using efficient Rust pipelines.
 
-**4. User Query**
+Events are summarized into compact representations.
 
-You ask: "Where was I 1 hour ago?"
+---
 
-Trace queries the stored disruptions from the last hour, ranks them by relevance (confidence score), and shows you a timeline.
+### 3. Azure Reasoning (Required)
 
-**5. Guidance (Optional)**
+When guidance is requested:
 
-If you enable Azure OpenAI, Trace can generate empathetic context:
+- Recent interruption events are sent to Azure AI
+- Azure OpenAI reasons over disruption patterns
+- The system determines:
+  - Whether guidance is appropriate
+  - Which interruption caused loss of continuity
+  - How guidance should be delivered
 
-> "You were at home. You paused what you were doing at 2:15pm when you got a notification."
+This step **cannot run locally**.
+
+---
+
+### 4. Physical Guidance
+
+Trace guides the user back using:
+- Directional anchor
+- Confidence-adjusted feedback
+- Sensory cues (visual + haptic)
+
+The system adapts as the user moves.
+
+---
+
+### 5. Calibration
+
+Trace verifies outcome:
+- **“Yes, I can continue”**
+- **“No, still stuck”**
+
+This signal improves future reasoning.
+
+---
 
 ## Project Structure
 
-```
 trace-app/
-├── app/                    # User-facing screens (Expo Router)
-│   ├── (tabs)/
-│   │   ├── index.tsx      # Main query screen
-│   │   └── explore.tsx    # Results timeline
-│   ├── screens/           # Full screens
-│   └── modal.tsx          # Dialogs
+├── app/                    # User-facing screens
+│   ├── index.tsx           # System evaluation + guidance entry
+│   ├── guidance.tsx        # Physical guidance UI
+│   └── calibration.tsx     # Outcome confirmation
 │
-├── _components/            # UI components
-│   ├── AIInput.tsx        # Query input
-│   ├── BehavioralIndicator.tsx  # Motion feedback
-│   └── ConfidenceBadge.tsx      # Confidence display
+├── _components/
+│   ├── DirectionAnchor.tsx
+│   ├── ConfidenceRing.tsx
+│   └── SystemStatusText.tsx
 │
-├── _utils/                # Business logic
-│   ├── hooks/
-│   │   ├── useInference.ts       # CEBE-X queries
-│   │   ├── useGraph.ts           # Zone Mapper queries
-│   │   ├── useBatteryState.ts    # Battery awareness
-│   │   └── useOnboarding.ts      # Setup flow
-│   ├── services/
-│   │   ├── inference.ts          # CEBE-X bridge
-│   │   ├── graph.ts              # Zone Mapper bridge
-│   │   └── storage.ts            # Local data
-│   ├── state/
-│   │   └── traceStore.ts         # Zustand state
-│   └── types/
-│       └── domain.ts             # Type definitions
+├── _services/
+│   ├── azureReasoning.ts   # Azure OpenAI interface
+│   ├── guidanceEngine.ts  # Direction + haptics
+│   └── permissions.ts
 │
-├── trace-cebe-x-engine/   # CEBE-X: ranking engine (Rust)
-├── trace-sensing-engine/  # IMU: motion detector (Rust)
-├── trace-zone-mapper/     # Zone Mapper: spatial index (Rust)
+├── _state/
+│   └── traceStore.ts
 │
-├── package.json
-├── app.json
-├── eas.json              # EAS build config
-└── BUILD_PLAN.md         # Deployment guide
-```
+├── trace-sensing-engine/   # IMU Engine (Rust)
+├── trace-zone-mapper/      # Zone Mapper (Rust)
+├── trace-cebe-x-engine/    # CEBE-X Runtime (ONNX)
+│   ├── BUILD_PLAN.md
+└── README.md
 
-## Getting Started
+---
 
-### Prerequisites
-- Node.js 18+
-- Expo CLI: `npm install -g eas-cli expo-cli`
-- Rust (if building engines): `rustup`
+## Azure Services Used (Required)
 
-### Install
+- **Azure OpenAI (GPT-4o)** Core interruption reasoning and adaptive guidance
 
-```bash
-npm install
-npx expo start
-```
+- **Azure AI Foundry** Training, refinement, and synthetic data generation
 
-### Run
+- **Azure Blob Storage** Model distribution and versioning
 
-**iOS Simulator:**
-```bash
-npx expo run:ios
-```
+Trace is not functional without Azure AI.
 
-**Android Emulator:**
-```bash
-npx expo run:android
-```
-
-### Test
-
-```bash
-npm test
-```
-
-## Building for Stores
-
-See [BUILD_PLAN.md](BUILD_PLAN.md) for step-by-step instructions:
-- Building Rust engines for production
-- Signing apps for iOS App Store and Google Play Store
-- Submission process for both platforms
+---
 
 ## Design Philosophy
 
-Trace follows strict design principles:
+1. **Assistive, not prescriptive** Trace guides. It never commands.
 
-1. **Code exists to make intent obvious, not to be clever.** Judges predict the next line—that's the goal.
+2. **System-led interaction** Users are not asked to explain failure.
 
-2. **Type-first thinking.** Every concept has a type. Never raw dicts across boundaries.
+3. **Minimal cognitive load** One action. One direction.
 
-3. **State machines over if-else chains.** Explicit, boring, correct.
+4. **Probabilistic honesty** Trace may decline to guide when confidence is low.
 
-4. **Battery efficiency by default.** Events over streams. Summarize early. No continuous processing.
+5. **Independence first** Success is measured by resumed functioning.
 
-5. **No ML unless necessary.** CEBE-X uses math and logic, not neural networks, for scoring disruptions.
+---
 
-6. **Comments explain why, not what.** Code is obvious. Why it exists matters.
+## Privacy & Trust
 
-## Technical Details
+- Only summarized interruption data is sent to Azure
+- No raw sensor streams are stored
+- No audio or camera usage
+- Azure processing is stateless and transient
 
-- **Binary Format:** Efficient wire protocol between engines
-- **ONNX Runtime:** ML inference on-device at <500ms
-- **FFI Bindings:** TypeScript ↔ Rust via C ABI
-- **SQLite:** Local persistence for zones and disruptions
-- **Zustand:** Lightweight state management for React
+Trace is designed for **medical-adjacent trust**, not consumer surveillance.
 
-## Microservices
-
-**Trace Sensing Engine** ([trace-sensing-engine/](trace-sensing-engine/))
-- Processes raw IMU data
-- Detects disruptions in real-time
-- Output: Binary wire format messages
-
-**Zone Mapper** ([trace-zone-mapper/](trace-zone-mapper/))
-- Maintains spatial graph
-- Indexes zone transitions
-- Provides feature vectors for ranking
-
-**CEBE-X Engine** ([trace-cebe-x-engine/](trace-cebe-x-engine/))
-- Ranks disruption events
-- Scores by relevance (0-1 confidence)
-- Returns top-K candidates
-
-See individual READMEs for implementation details.
-
-## Related Work
-
-Trace's approach is informed by:
-- Cognitive neuroscience: Context restoration reduces disorientation
-- UX research: Multimodal cues (visual + spatial) aid recall
-- Mobile systems: Offline-first architecture preserves privacy and performance
+---
 
 ## Documentation
 
 - [BUILD_PLAN.md](BUILD_PLAN.md) — Build and deployment
-- [ARCHITECTURE.md](ARCHITECTURE.md) — Deep technical dive
-- [trace-sensing-engine/README.md](trace-sensing-engine/README.md) — IMU processing
-- [trace-zone-mapper/README.md](trace-zone-mapper/README.md) — Spatial indexing
-- [trace-cebe-x-engine/README.md](trace-cebe-x-engine/README.md) — Ranking engine
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Technical deep dive
+- Engine READMEs for implementation details
 
-## Privacy
+---
 
-Trace processes all data on-device. Nothing is transmitted except:
-- Optional Azure OpenAI service (only if you enable it)
-- Optional Azure Speech service (only if you enable it)
-
-Both are opt-in. Core Trace functionality works completely offline.
-
-## Support
-
-For issues or questions, see individual engine documentation or open an issue.
-
-Trace is built to help people regain independence when interruptions steal their focus.
+Trace exists to restore independence when interruptions break daily functioning.
